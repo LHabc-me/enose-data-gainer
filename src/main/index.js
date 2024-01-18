@@ -13,8 +13,8 @@ const SerialPort = require("serialport");
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 1000,
+    height: 750,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon } : {}),
@@ -136,6 +136,20 @@ app.whenReady().then(() => {
       return;
     }
     event.sender.send("save-file-success");
+  });
+
+  ipcMain.on("save-config", (event, config) => {
+    fs.writeFileSync(path.join(os.homedir(), "enose-config.json"), JSON.stringify(config));
+  });
+
+  ipcMain.on("get-config", (event) => {
+    try {
+      const config = JSON.parse(fs.readFileSync(path.join(os.homedir(), "enose-config.json"), "utf-8"));
+      event.sender.send("config", config);
+    } catch (e) {
+      console.log(e);
+      event.sender.send("config", null);
+    }
   });
 });
 

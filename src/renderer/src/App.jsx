@@ -41,7 +41,7 @@ function App() {
   const [config, setConfig] = useState({
     communication: {
       port: "",
-      baudRate: "115200",
+      baudRate: "9600",
       dataBits: "8",
       stopBits: "1",
       parity: "无",
@@ -50,7 +50,7 @@ function App() {
     graph: {
       showInterval: "1000",
       showLastNColumns: {
-        enable: false,
+        enable: true,
         n: "10"
       }
     },
@@ -58,16 +58,42 @@ function App() {
       display: "十进制",
       saveAsFile: {
         enable: true,
-        lines: "60",
+        lines: "6000",
         folder: "",
         filename: "%Y-%m-%d-%n.xlsx"
+      },
+      stopAfterSave: {
+        enable: true
       }
     }
   });
   const onConfigChange = (newConfig) => {
     notify("配置已更新", null, "success");
     setConfig(newConfig);
+    // 存储到本地
+    ipcRenderer.send("save-config", newConfig);
   };
+
+  useEffect(() => {
+    ipcRenderer.send("get-config");
+    ipcRenderer.once("config", (event, configFromFile) => {
+      try {
+        if (configFromFile === null) {
+          return;
+        }
+        setConfig(configFromFile);
+      } finally {
+        ipcRenderer.send("get-homedir");
+        ipcRenderer.on("homedir", (event, homedir) => {
+          setConfig((config) => {
+            const configCopy = _.cloneDeep(config);
+            configCopy.receive.saveAsFile.folder = homedir;
+            return configCopy;
+          });
+        });
+      }
+    });
+  }, []);
 
   // 接收到的所有数据 24个float一组
   const [dataAll, setDataAll] = useState([]);
@@ -155,14 +181,14 @@ function App() {
         if (lineCount.current === _.toNumber(config.receive.saveAsFile.lines)) {
           console.log(config.receive.saveAsFile.folder);
           const filename = config.receive.saveAsFile.filename
-            .replace("%Y", new Date().getFullYear().toString())
-            .replace("%m", (new Date().getMonth() + 1).toString())
-            .replace("%d", new Date().getDate().toString())
-            .replace("%H", new Date().getHours().toString())
-            .replace("%M", new Date().getMinutes().toString())
-            .replace("%S", new Date().getSeconds().toString())
-            .replace("%l", config.receive.saveAsFile.lines.toString())
-            .replace("%n", fileSavedCount.current.toString())
+            .replaceAll("%Y", new Date().getFullYear().toString())
+            .replaceAll("%m", (new Date().getMonth() + 1).toString())
+            .replaceAll("%d", new Date().getDate().toString())
+            .replaceAll("%H", new Date().getHours().toString())
+            .replaceAll("%M", new Date().getMinutes().toString())
+            .replaceAll("%S", new Date().getSeconds().toString())
+            .replaceAll("%l", config.receive.saveAsFile.lines.toString())
+            .replaceAll("%n", fileSavedCount.current.toString())
             .trim();
           ipcRenderer.send("save-file", {
             folder: config.receive.saveAsFile.folder.trim(),
@@ -171,6 +197,9 @@ function App() {
           });
           lineCount.current = 0;
           lineToSave.current = [];
+          if (config.receive.stopAfterSave.enable) {
+            stop();
+          }
         }
       }
       return config;
@@ -224,12 +253,6 @@ function App() {
     ipcRenderer.on("save-file-success", (event, error) => {
       notify("保存文件成功", null, "success");
       fileSavedCount.current++;
-    });
-    ipcRenderer.send("get-homedir");
-    ipcRenderer.on("homedir", (event, homedir) => {
-      const configCopy = _.cloneDeep(config);
-      configCopy.receive.saveAsFile.folder = homedir;
-      setConfig(configCopy);
     });
     return () => {
       ipcRenderer.removeAllListeners("port-data");

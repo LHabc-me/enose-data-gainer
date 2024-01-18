@@ -1,6 +1,6 @@
 import { Button, Checkbox, Combobox, Dropdown, Option, Radio, RadioGroup, Input, makeStyles, Tooltip, Popover, PopoverTrigger, PopoverSurface } from "@fluentui/react-components";
 import { Folder16Regular, QuestionCircle16Regular } from "@fluentui/react-icons";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const _ = require("lodash");
 const useStyles = makeStyles({
@@ -19,6 +19,9 @@ function PortConfigPanel(props) {
   const { disabled, config, onConfigChange, ...rest } = props;
   const classes = useStyles();
   const [availablePorts, setAvailablePorts] = useState([]);
+  useEffect(() => {
+    console.log(config);
+  }, [config]);
   useState(() => {
     const interval = setInterval(() => {
       const { ipcRenderer } = window.require("electron");
@@ -267,6 +270,18 @@ function PortConfigPanel(props) {
                          }} />
                   行存储一次
                 </div>
+              </div>
+              <div>
+                <Checkbox label={"存储完成后自动关闭串口"}
+                          disabled={disabled}
+                          checked={config.receive.stopAfterSave.enable}
+                          onChange={(e, data) => {
+                            const stopAfterSave = {
+                              ...config.receive.saveAsFile,
+                              enable: data.checked
+                            };
+                            handleConfigChange(stopAfterSave, "stopAfterSave", "receive");
+                          }} />
               </div>
               <div>
                 <div>
